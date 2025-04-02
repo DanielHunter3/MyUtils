@@ -2,3 +2,4 @@ build
 .PVS-Studio
 .vscode
 
+src/main.cpp
