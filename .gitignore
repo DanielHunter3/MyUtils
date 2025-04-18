@@ -3,3 +3,7 @@ build
 .vscode
 
 src/main.cpp
+src/main.c
+
+*.exe
+*.s

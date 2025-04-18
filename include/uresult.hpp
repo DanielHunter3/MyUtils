@@ -1,13 +1,13 @@
-#pragma once
+#pragma  once
 
-#include "result.hpp"
+#include  "result.hpp"
 
-enum class EnumError {
+enum  class  EnumError  {
   //...
 };
 
-template <typename T>
-using UResult = Result<T, EnumError>;
+template  <typename  T>
+using  UResult  =  Result<T,  EnumError>;
 
-// template <typename T>
-// using UResult = Result<T, StructError>;
+//  template  <typename  T>
+//  using  UResult  =  Result<T,  StructError>;
