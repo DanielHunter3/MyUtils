@@ -1,0 +1,104 @@
+#include <boost/pool/pool_alloc.hpp>
+#include <iostream>
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <chrono>
+
+constexpr int OBJECT_SIZE = 64; // Размер объекта
+constexpr int ALLOCATIONS_PER_THREAD = 100000; // Выделений на поток
+constexpr int THREAD_COUNT = 8; // Количество потоков
+
+struct TestObject {
+    char data[OBJECT_SIZE];
+};
+
+// Тест с boost::pool_allocator (потокобезопасный)
+void test_boost_pool(int thread_id) {
+    boost::fast_pool_allocator<TestObject> allocator;
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    std::vector<TestObject*, boost::fast_pool_allocator<TestObject*>> objects;
+    objects.reserve(ALLOCATIONS_PER_THREAD);
+    
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; ++i) {
+        TestObject* obj = allocator.allocate(1);
+        objects.push_back(obj);
+    }
+    
+    for (TestObject* obj : objects) {
+        allocator.deallocate(obj, 1);
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    
+    std::lock_guard<std::mutex> lock(print_mutex);
+    std::cout << "Поток " << thread_id << " boost::pool: " << duration.count() << " сек\n";
+}
+
+// Тест с malloc/free
+void test_malloc(int thread_id) {
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    std::vector<TestObject*> objects;
+    objects.reserve(ALLOCATIONS_PER_THREAD);
+    
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; ++i) {
+        TestObject* obj = static_cast<TestObject*>(malloc(OBJECT_SIZE));
+        objects.push_back(obj);
+    }
+    
+    for (TestObject* obj : objects) {
+        free(obj);
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    
+    std::lock_guard<std::mutex> lock(print_mutex);
+    std::cout << "Поток " << thread_id << " malloc/free: " << duration.count() << " сек\n";
+}
+
+std::mutex print_mutex;
+
+int main() {
+    std::vector<std::thread> threads;
+    
+    // Тестируем boost::pool
+    std::cout << "Тестирование boost::pool в " << THREAD_COUNT << " потоках...\n";
+    auto start_pool = std::chrono::high_resolution_clock::now();
+    
+    for (int i = 0; i < THREAD_COUNT; ++i) {
+        threads.emplace_back(test_boost_pool, i);
+    }
+    
+    for (auto& t : threads) {
+        t.join();
+    }
+    
+    auto end_pool = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> pool_duration = end_pool - start_pool;
+    std::cout << "Общее время boost::pool: " << pool_duration.count() << " сек\n\n";
+    
+    threads.clear();
+    
+    // Тестируем malloc/free
+    std::cout << "Тестирование malloc/free в " << THREAD_COUNT << " потоках...\n";
+    auto start_malloc = std::chrono::high_resolution_clock::now();
+    
+    for (int i = 0; i < THREAD_COUNT; ++i) {
+        threads.emplace_back(test_malloc, i);
+    }
+    
+    for (auto& t : threads) {
+        t.join();
+    }
+    
+    auto end_malloc = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> malloc_duration = end_malloc - start_malloc;
+    std::cout << "Общее время malloc/free: " << malloc_duration.count() << " сек\n";
+    
+    return 0;
+}
